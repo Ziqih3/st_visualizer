@@ -1,15 +1,16 @@
-log_analyze/
-├── tools/
-│   ├── log_cut.py        # 日志提取工具
-│   ├── keylog2json.py    # JSON转换工具
-│   └── st_viewer.py      # ST图可视化工具
-├── scripts/
-│   └── run_analysis.sh   # 自动处理脚本
-├── data/
-│   ├── log              # 输入日志文件
-│   ├── keylogs.txt      # 提取的关键日志
-│   └── output.json      # 转换后的JSON数据
-└── README.md            # 项目说明文档
+## Directory Structure
+st_visualizer/  
+├── tools/  
+│   ├── log_cut.py        # 日志提取工具  
+│   ├── keylog2json.py    # JSON转换工具  
+│   └── st_viewer.py      # ST图可视化工具  
+├── scripts/  
+│   └── run_analysis.sh   # 自动处理脚本  
+├── data/  
+│   ├── log              # 输入日志文件  
+│   ├── keylogs.txt      # 提取的关键日志  
+│   └── output.json      # 转换后的JSON数据  
+└── README.md            # 项目说明文档  
 
 
 # ST图日志分析工具

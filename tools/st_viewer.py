@@ -53,9 +53,9 @@ class STViewer(QMainWindow):
         self.colors = plt.cm.tab20(np.linspace(0, 1, 20))  # 20种不同的颜色
         self.color_index = 0
         
-        # 移除以下两行
-        # self.canvas.mpl_connect('button_press_event', self.on_click)
-        # self.highlighted_id = None
+        # 添加点击事件和高亮ID
+        self.canvas.mpl_connect('button_press_event', self.on_click)
+        self.highlighted_id = None
         
         # 添加键盘事件处理
         self.installEventFilter(self)
@@ -108,12 +108,15 @@ class STViewer(QMainWindow):
             color = self.get_obstacle_color(obs['id'])
             t = [obs['start_t'], obs['end_t']]
             
-            # 移除高亮相关代码，使用固定的透明度
-            # 绘制上下边界，简化图例标签
+            # 根据是否高亮调整透明度
+            alpha = 0.6 if obs['id'] == self.highlighted_id else 0.2
+            line_width = 2 if obs['id'] == self.highlighted_id else 1
+            
+            # 绘制上下边界
             s_upper = [obs['start_up_s'], obs['end_up_s']]
             s_lower = [obs['start_low_s'], obs['end_low_s']]
-            self.ax.plot(t, s_upper, color=color, linestyle='-')
-            self.ax.plot(t, s_lower, color=color, linestyle='--')
+            self.ax.plot(t, s_upper, color=color, linestyle='-', linewidth=line_width)
+            self.ax.plot(t, s_lower, color=color, linestyle='--', linewidth=line_width)
             
             # 只有当ID未显示过时才显示标签
             if obs['id'] not in displayed_ids:
@@ -123,8 +126,8 @@ class STViewer(QMainWindow):
                             ha='left', va='bottom')
                 displayed_ids.add(obs['id'])
             
-            # 填充上下边界之间的区域，使用固定的透明度
-            self.ax.fill_between(t, s_lower, s_upper, color=color, alpha=0.2)
+            # 填充上下边界之间的区域
+            self.ax.fill_between(t, s_lower, s_upper, color=color, alpha=alpha)
         
         # 绘制轨迹线
         if 'trajectories' in frame:
@@ -197,7 +200,7 @@ class STViewer(QMainWindow):
         if not event.inaxes:
             return
             
-        current_time = self.slider.time()  # 使用 time() 获取当前时间
+        current_time = self.slider.get_current_time()  # 修改这里：使用正确的方法名
         frame = self.find_nearest_frame(current_time)
         
         # 检查点击位置是否在任何障碍物区域内

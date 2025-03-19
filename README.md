@@ -105,7 +105,7 @@ python st_viewer.py
 
 ## 依赖项
 ```bash
-pip install PyQt5 matplotlib numpy
+pip3 install PyQt5 matplotlib numpy
 ```
 
 ## debug

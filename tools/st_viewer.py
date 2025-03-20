@@ -28,7 +28,9 @@ class STViewer(QMainWindow):
         self.figure = Figure(figsize=(12, 6))
         self.canvas = FigureCanvas(self.figure)
         self.ax = self.figure.add_subplot(111)
-        
+        self.highlighted_info = None  # 添加新属性存储高亮信息
+        self.highlighted_pos = None   # 添加新属性存储标注位置
+
         # 创建文本显示区域
         self.text_display = QTextEdit()
         self.text_display.setReadOnly(True)
@@ -146,6 +148,16 @@ class STViewer(QMainWindow):
         # 更新画布
         self.canvas.draw()
         
+        # 如果有高亮信息，重新显示标注
+        if self.highlighted_info and self.highlighted_pos:
+            self.ax.annotate(self.highlighted_info,
+                xy=self.highlighted_pos,
+                xytext=(10, 10), textcoords='offset points',
+                bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5),
+                fontsize=8,
+                zorder=1000)
+            self.canvas.draw()
+        
         # 更新文本显示
         display_text = f"时间戳: {frame['timestamp_readable']}\n\n"
         display_text += "障碍物列表:\n"
@@ -232,29 +244,32 @@ class STViewer(QMainWindow):
                     clicked_obstacles.append((obs, area))
         
         if clicked_obstacles:
-            # 在所有包含点击位置的障碍物中选择面积最小的
             clicked_obs = min(clicked_obstacles, key=lambda x: x[1])[0]
             
             if self.highlighted_id == clicked_obs['id']:
                 self.highlighted_id = None
+                self.highlighted_info = None
+                self.highlighted_pos = None
             else:
                 self.highlighted_id = clicked_obs['id']
                 # 显示障碍物详细信息
-                info_text = f"障碍物详细信息:\n"
-                info_text += f"ID: {clicked_obs['id']}\n"
-                info_text += f"纵向位置: {clicked_obs['start_low_s']:.2f}m -> {clicked_obs['end_low_s']:.2f}m\n"
-                info_text += f"速度范围: {clicked_obs['start_up_s']:.2f}m/s -> {clicked_obs['end_up_s']:.2f}m/s\n"
-                info_text += f"预测时间: {clicked_obs['start_t']:.2f}s -> {clicked_obs['end_t']:.2f}s\n"
-                info_text += f"面积: {(clicked_obs['end_t'] - clicked_obs['start_t']) * (clicked_obs['start_up_s'] - clicked_obs['start_low_s']):.2f}m·s\n"
-                
-                # 在点击位置显示标签
-                self.ax.annotate(info_text,
-                    xy=(event.xdata, event.ydata),
-                    xytext=(10, 10), textcoords='offset points',
-                    bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5),
-                    fontsize=8)
+                self.highlighted_info = (
+                    f"障碍物详细信息:\n"
+                    f"ID: {clicked_obs['id']}\n"
+                    f"纵向位置: {clicked_obs['start_low_s']:.2f}m -> {clicked_obs['end_low_s']:.2f}m\n"
+                    f"速度范围: {clicked_obs['start_up_s']:.2f}m/s -> {clicked_obs['end_up_s']:.2f}m/s\n"
+                    f"预测时间: {clicked_obs['start_t']:.2f}s -> {clicked_obs['end_t']:.2f}s\n"
+                    f"面积: {(clicked_obs['end_t'] - clicked_obs['start_t']) * (clicked_obs['start_up_s'] - clicked_obs['start_low_s']):.2f}m·s\n"
+                )
+                self.highlighted_pos = (event.xdata, event.ydata)
             
             self.update_display(current_time)
+        else:
+            if self.highlighted_id is not None:
+                self.highlighted_id = None
+                self.highlighted_info = None
+                self.highlighted_pos = None
+                self.update_display(current_time)
 
 def main():
     app = QApplication(sys.argv)

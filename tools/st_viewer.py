@@ -28,7 +28,9 @@ class STViewer(QMainWindow):
         self.figure = Figure(figsize=(12, 6))
         self.canvas = FigureCanvas(self.figure)
         self.ax = self.figure.add_subplot(111)
-        
+        self.highlighted_info = None  # 添加新属性存储高亮信息
+        self.highlighted_pos = None   # 添加新属性存储标注位置
+
         # 创建文本显示区域
         self.text_display = QTextEdit()
         self.text_display.setReadOnly(True)
@@ -108,9 +110,10 @@ class STViewer(QMainWindow):
             color = self.get_obstacle_color(obs['id'])
             t = [obs['start_t'], obs['end_t']]
             
-            # 根据是否高亮调整透明度
-            alpha = 0.6 if obs['id'] == self.highlighted_id else 0.2
-            line_width = 2 if obs['id'] == self.highlighted_id else 1
+            # 根据是否高亮调整透明度和线宽
+            is_highlighted = obs['id'] == self.highlighted_id
+            alpha = 0.8 if is_highlighted else 0.2
+            line_width = 3 if is_highlighted else 1
             
             # 绘制上下边界
             s_upper = [obs['start_up_s'], obs['end_up_s']]
@@ -145,6 +148,16 @@ class STViewer(QMainWindow):
         # 更新画布
         self.canvas.draw()
         
+        # 如果有高亮信息，重新显示标注
+        if self.highlighted_info and self.highlighted_pos:
+            self.ax.annotate(self.highlighted_info,
+                xy=self.highlighted_pos,
+                xytext=(10, 10), textcoords='offset points',
+                bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.5),
+                fontsize=8,
+                zorder=1000)
+            self.canvas.draw()
+        
         # 更新文本显示
         display_text = f"时间戳: {frame['timestamp_readable']}\n\n"
         display_text += "障碍物列表:\n"
@@ -159,7 +172,10 @@ class STViewer(QMainWindow):
 
     def load_data(self):
         try:
-            with open('../data/output.json', 'r', encoding='utf-8') as f:
+            import os
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            json_path = os.path.join(script_dir, '..', 'data', 'output.json')
+            with open(json_path, 'r', encoding='utf-8') as f:
                 self.data = json.load(f)
                 
             if not self.data:
@@ -200,19 +216,60 @@ class STViewer(QMainWindow):
         if not event.inaxes:
             return
             
-        current_time = self.slider.get_current_time()  # 修改这里：使用正确的方法名
+        current_time = self.slider.get_current_time()
         frame = self.find_nearest_frame(current_time)
         
-        # 检查点击位置是否在任何障碍物区域内
+        # 存储所有包含点击位置的障碍物
+        clicked_obstacles = []
+        
         for obs in frame['obstacles']:
-            if (obs['start_t'] <= event.xdata <= obs['end_t'] and 
-                obs['start_low_s'] <= event.ydata <= obs['start_up_s']):
-                if self.highlighted_id == obs['id']:
-                    self.highlighted_id = None  # 再次点击取消高亮
-                else:
-                    self.highlighted_id = obs['id']
-                self.update_display(current_time)  # 使用当前时间更新显示
-                break
+            # 计算障碍物的四个顶点
+            vertices = [
+                (obs['start_t'], obs['start_low_s']),  # 左下
+                (obs['start_t'], obs['start_up_s']),   # 左上
+                (obs['end_t'], obs['end_up_s']),       # 右上
+                (obs['end_t'], obs['end_low_s'])       # 右下
+            ]
+            
+            # 检查点击位置是否在障碍物区域内（考虑斜率）
+            if (obs['start_t'] <= event.xdata <= obs['end_t']):
+                # 计算点击位置对应的上下边界值
+                t_ratio = (event.xdata - obs['start_t']) / (obs['end_t'] - obs['start_t'])
+                s_lower = obs['start_low_s'] + (obs['end_low_s'] - obs['start_low_s']) * t_ratio
+                s_upper = obs['start_up_s'] + (obs['end_up_s'] - obs['start_up_s']) * t_ratio
+                
+                # 严格检查点击位置是否在上下边界之间
+                if s_lower <= event.ydata <= s_upper:
+                    area = (obs['end_t'] - obs['start_t']) * (obs['start_up_s'] - obs['start_low_s'])
+                    clicked_obstacles.append((obs, area))
+        
+        if clicked_obstacles:
+            clicked_obs = min(clicked_obstacles, key=lambda x: x[1])[0]
+            
+            if self.highlighted_id == clicked_obs['id']:
+                self.highlighted_id = None
+                self.highlighted_info = None
+                self.highlighted_pos = None
+            else:
+                self.highlighted_id = clicked_obs['id']
+                # 显示障碍物详细信息
+                self.highlighted_info = (
+                    f"障碍物详细信息:\n"
+                    f"ID: {clicked_obs['id']}\n"
+                    f"纵向位置: {clicked_obs['start_low_s']:.2f}m -> {clicked_obs['end_low_s']:.2f}m\n"
+                    f"速度范围: {clicked_obs['start_up_s']:.2f}m/s -> {clicked_obs['end_up_s']:.2f}m/s\n"
+                    f"预测时间: {clicked_obs['start_t']:.2f}s -> {clicked_obs['end_t']:.2f}s\n"
+                    f"面积: {(clicked_obs['end_t'] - clicked_obs['start_t']) * (clicked_obs['start_up_s'] - clicked_obs['start_low_s']):.2f}m·s\n"
+                )
+                self.highlighted_pos = (event.xdata, event.ydata)
+            
+            self.update_display(current_time)
+        else:
+            if self.highlighted_id is not None:
+                self.highlighted_id = None
+                self.highlighted_info = None
+                self.highlighted_pos = None
+                self.update_display(current_time)
 
 def main():
     app = QApplication(sys.argv)

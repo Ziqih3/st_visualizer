@@ -1,6 +1,7 @@
 import re
 import json
 from datetime import datetime
+import os
 
 def parse_timestamp(line):
     # 匹配时间戳格式 [YYMMDD HH:MM:SS.NNNNNN]
@@ -50,17 +51,19 @@ def parse_trajectory_line(line):
     return None
 
 def process_keylog_to_json():
-    with open('../data/keylogs.txt', 'r') as f:
+    # 获取脚本所在目录的上级目录中的data文件夹
+    data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
+    keylog_path = os.path.join(data_dir, 'keylogs.txt')
+    output_path = os.path.join(data_dir, 'output.json')
+    
+    with open(keylog_path, 'r') as f:
         lines = f.readlines()
     result = []
     current_frame = None
     current_trajectories = []
     
     try:
-        with open('../data/output.json', 'r') as f:
-            lines = f.readlines()
-        
-        for line in lines:
+        for line in lines:  # 移除了重复的文件读取
             if "Iter Deduction Complete obs list" in line:
                 if current_frame:
                     if current_trajectories:  # 只有在有轨迹数据时才添加
@@ -87,12 +90,12 @@ def process_keylog_to_json():
         
         # 保存最后一帧
         if current_frame:
-            if current_trajectories:  # 只有在有轨迹数据时才添加
+            if current_trajectories:
                 current_frame["trajectories"] = current_trajectories
             result.append(current_frame)
         
         # 写入JSON文件
-        with open('output.json', 'w') as f:
+        with open(output_path, 'w') as f:
             json.dump(result, f, indent=2)
             
     except FileNotFoundError:

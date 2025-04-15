@@ -48,6 +48,7 @@ class STViewer(QMainWindow):
         self.load_data()
         
         # 连接信号
+        self.slider.valueChanged.connect(self.on_slider_value_changed)  # 添加新的信号连接
         self.slider.timeChanged.connect(self.update_display)
         
         # 颜色映射字典
@@ -79,10 +80,17 @@ class STViewer(QMainWindow):
             self.color_index += 1
         return self.color_map[obs_id]
     
+    def on_slider_value_changed(self, value):
+        # 在滑块值改变时清除高亮信息
+        self.highlighted_id = None
+        self.highlighted_info = None
+        self.highlighted_pos = None
+    
     def update_display(self, current_time):
         if not hasattr(self, 'data') or not self.data:
             return
             
+        # 移除这里的清除高亮信息代码
         frame = self.find_nearest_frame(current_time)
         
         # 清除之前的图形
@@ -252,12 +260,16 @@ class STViewer(QMainWindow):
                 self.highlighted_pos = None
             else:
                 self.highlighted_id = clicked_obs['id']
+                # 计算平均速度
+                time_diff = clicked_obs['end_t'] - clicked_obs['start_t']
+                avg_speed = (clicked_obs['end_low_s'] - clicked_obs['start_low_s']) / time_diff if time_diff != 0 else 0
+                
                 # 显示障碍物详细信息
                 self.highlighted_info = (
                     f"障碍物详细信息:\n"
                     f"ID: {clicked_obs['id']}\n"
                     f"纵向位置: {clicked_obs['start_low_s']:.2f}m -> {clicked_obs['end_low_s']:.2f}m\n"
-                    f"速度范围: {clicked_obs['start_up_s']:.2f}m/s -> {clicked_obs['end_up_s']:.2f}m/s\n"
+                    f"平均速度: {avg_speed:.2f}m/s\n"
                     f"预测时间: {clicked_obs['start_t']:.2f}s -> {clicked_obs['end_t']:.2f}s\n"
                     f"面积: {(clicked_obs['end_t'] - clicked_obs['start_t']) * (clicked_obs['start_up_s'] - clicked_obs['start_low_s']):.2f}m·s\n"
                 )
